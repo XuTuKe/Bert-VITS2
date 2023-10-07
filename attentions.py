@@ -69,7 +69,7 @@ class Encoder(nn.Module):
                 self.cond_layer_idx = (
                     kwargs["cond_layer_idx"] if "cond_layer_idx" in kwargs else 2
                 )
-                logging.debug(self.gin_channels, self.cond_layer_idx)
+                logging.debug(f"{self.gin_channels}, {self.cond_layer_idx}")
                 assert (
                     self.cond_layer_idx < self.n_layers
                 ), "cond_layer_idx should be less than n_layers"

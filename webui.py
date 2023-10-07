@@ -190,16 +190,16 @@ if __name__ == "__main__":
                     choices=speakers, value=speakers[0], label="Speaker"
                 )
                 sdp_ratio = gr.Slider(
-                    minimum=0, maximum=1, value=0.2, step=0.1, label="SDP Ratio"
+                    minimum=0, maximum=1, value=0.2, step=0.1, label="SDP Ratio(语音语调方差)"
                 )
                 noise_scale = gr.Slider(
-                    minimum=0.1, maximum=2, value=0.6, step=0.1, label="Noise Scale"
+                    minimum=0.1, maximum=2, value=0.6, step=0.1, label="Noise Scale(感情)"
                 )
                 noise_scale_w = gr.Slider(
-                    minimum=0.1, maximum=2, value=0.8, step=0.1, label="Noise Scale W"
+                    minimum=0.1, maximum=2, value=0.8, step=0.1, label="Noise Scale W(音节发音长度)"
                 )
                 length_scale = gr.Slider(
-                    minimum=0.1, maximum=2, value=1, step=0.1, label="Length Scale"
+                    minimum=0.1, maximum=2, value=1, step=0.1, label="Length Scale(语速)"
                 )
                 language = gr.Dropdown(
                     choices=languages, value=languages[0], label="Language"
