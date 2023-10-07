@@ -8,9 +8,9 @@ logging.getLogger("markdown_it").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
-logging.basicConfig(
+""" logging.basicConfig(
     level=logging.INFO, format="| %(name)s | %(levelname)s | %(message)s"
-)
+) """
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,11 @@ if sys.platform == "darwin" and torch.backends.mps.is_available():
 else:
     device = "cuda"
 
+def log_device_usage(msg, use_cuda=True):
+    import psutil
+    mem_Mb = psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2
+    cuda_mem_Mb = torch.cuda.memory_allocated(0) / 1024 ** 2 if use_cuda else 0
+    logging.debug(f"{msg}:, mem: {int(mem_Mb)}Mb, gpu mem:{int(cuda_mem_Mb)}Mb")
 
 def get_text(text, language_str, hps):
     norm_text, phone, tone, word2ph = clean_text(text, language_str)
@@ -72,7 +77,10 @@ def get_text(text, language_str, hps):
 
 def infer(text, sdp_ratio, noise_scale, noise_scale_w, length_scale, sid, language):
     global net_g
+    log_device_usage("before get text")
     bert, ja_bert, phones, tones, lang_ids = get_text(text, language, hps)
+    log_device_usage("after get text and before infer, add var(bert, ja_bert, phones, tones, lang_ids)")
+
     with torch.no_grad():
         x_tst = phones.to(device).unsqueeze(0)
         tones = tones.to(device).unsqueeze(0)
@@ -100,14 +108,17 @@ def infer(text, sdp_ratio, noise_scale, noise_scale_w, length_scale, sid, langua
             .float()
             .numpy()
         )
-        del x_tst, tones, lang_ids, bert, x_tst_lengths, speakers
+        log_device_usage("after infer and before del var")
+        del x_tst, tones, lang_ids, bert, ja_bert, x_tst_lengths, speakers
         torch.cuda.empty_cache()
+        log_device_usage("after del var and return audio")
         return audio
 
 
 def tts_fn(text, speaker, sdp_ratio, noise_scale, noise_scale_w, length_scale, language):
     slices = text.split("|")
     audio_list = []
+    log_device_usage("=============== before text infer")
     with torch.no_grad():
         for slice in slices:
             audio = infer(slice, sdp_ratio=sdp_ratio, noise_scale=noise_scale, noise_scale_w=noise_scale_w, length_scale=length_scale, sid=speaker, language=language)
@@ -115,6 +126,7 @@ def tts_fn(text, speaker, sdp_ratio, noise_scale, noise_scale_w, length_scale, l
             silence = np.zeros(hps.data.sampling_rate)  # 生成1秒的静音
             audio_list.append(silence)  # 将静音添加到列表中
     audio_concat = np.concatenate(audio_list)
+    log_device_usage("=============== after text infer")
     return "Success", (hps.data.sampling_rate, audio_concat)
 
 if __name__ == "__main__":
@@ -138,7 +150,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.debug:
         logger.info("Enable DEBUG-LEVEL log")
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG, format="| %(name)s | %(levelname)s | %(message)s")
+    else:
+        logging.basicConfig(level=logging.INFO, format="| %(name)s | %(levelname)s | %(message)s")
     hps = utils.get_hparams_from_file(args.config)
 
     device = (
@@ -209,5 +223,5 @@ if __name__ == "__main__":
             outputs=[text_output, audio_output],
         )
 
-    webbrowser.open("http://127.0.0.1:7860")
-    app.launch(share=args.share)
+    webbrowser.open("http://127.0.0.1:7900")
+    app.launch(share=args.share, server_port=7900)
