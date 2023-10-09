@@ -147,6 +147,10 @@ if __name__ == "__main__":
         "-d", "--debug", action="store_true", help="enable DEBUG-LEVEL log"
     )
 
+    parser.add_argument(
+        "-a", "--gradio-auth", help="enable gradio auth, format name:passwd"
+    )    
+
     args = parser.parse_args()
     if args.debug:
         logger.info("Enable DEBUG-LEVEL log")
@@ -223,5 +227,9 @@ if __name__ == "__main__":
             outputs=[text_output, audio_output],
         )
 
+    auth = None
+    if ":" in args.gradio_auth:
+        auth = tuple(args.gradio_auth.split(":"))
+
     webbrowser.open("http://127.0.0.1:7900")
-    app.launch(share=args.share, server_port=7900)
+    app.launch(share=args.share, server_port=7900, auth=auth)
