@@ -1,3 +1,4 @@
+import asyncio
 from enum import Enum
 import os
 import sys
@@ -5,6 +6,7 @@ from fastapi import FastAPI, Response
 from io import BytesIO
 from fastapi.responses import StreamingResponse
 import numpy as np
+from pydantic import BaseModel
 import torch
 from av import open as avopen
 
@@ -162,17 +164,30 @@ class AudioFormat(str,Enum):
     wav = "wav"
     mp3 = "mp3"
     
+loop = asyncio.get_event_loop()
+
+# 使用 json 传参数时
+class TTSParams(BaseModel):
+    text:str
+    fmt:AudioFormat=AudioFormat.wav
+    speaker:str="bcsz"
+    sdp_ratio:float=0.2
+    noise_scale:float=0.5
+    noise_scale_w:float=0.6
+    length_scale:float=1.2
+    language:Language=Language.zh    
+    
 @app.post("/tts")
-def request_tts(text:str, fmt:AudioFormat=AudioFormat.wav, speaker:str="bcsz", sdp_ratio:float=0.2, noise_scale:float=0.5, noise_scale_w:float=0.6, length_scale:float=1.2, language:Language=Language.zh):
+async def request_tts(text:str, fmt:AudioFormat=AudioFormat.wav, speaker:str="bcsz", sdp_ratio:float=0.2, noise_scale:float=0.5, noise_scale_w:float=0.6, length_scale:float=1.2, language:Language=Language.zh):
     text = text.replace("/n", "")
-    rate, audio = tts_fn(
+    rate, audio = await loop.run_in_executor(None, tts_fn,
         text, 
-        speaker=speaker,
-        sdp_ratio=sdp_ratio,
-        noise_scale=noise_scale,
-        noise_scale_w=noise_scale_w,
-        length_scale=length_scale,
-        language=language
+        speaker,
+        sdp_ratio,
+        noise_scale,
+        noise_scale_w,
+        length_scale,
+        language
     )
 
     with BytesIO() as wav:
