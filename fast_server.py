@@ -2,9 +2,8 @@ import asyncio
 from enum import Enum
 import os
 import sys
-from fastapi import FastAPI, Response
+
 from io import BytesIO
-from fastapi.responses import StreamingResponse
 import numpy as np
 from pydantic import BaseModel
 import torch
@@ -18,8 +17,6 @@ from text import cleaned_text_to_sequence, get_bert
 from text.cleaner import clean_text
 from scipy.io import wavfile
 import logging
-
-app = FastAPI()
 
 def log_device_usage(msg, use_cuda=True):
     import psutil
@@ -177,6 +174,29 @@ class TTSParams(BaseModel):
     length_scale:float=1.2
     language:Language=Language.zh    
     
+from fastapi import FastAPI, Response
+from fastapi.openapi.docs import (
+    get_redoc_html,
+    get_swagger_ui_html,
+    get_swagger_ui_oauth2_redirect_html,
+)
+from fastapi.staticfiles import StaticFiles
+
+app = FastAPI(docs_url=None, redoc_url=None)
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - Swagger UI",
+        oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,
+        swagger_js_url="/static/swagger-ui-bundle.js",
+        swagger_css_url="/static/swagger-ui.css",
+    )
+    
 @app.post("/tts")
 async def request_tts(text:str, fmt:AudioFormat=AudioFormat.wav, speaker:str="bcsz", sdp_ratio:float=0.2, noise_scale:float=0.5, noise_scale_w:float=0.6, length_scale:float=1.2, language:Language=Language.zh):
     text = text.replace("/n", "")
@@ -212,4 +232,4 @@ if __name__ == '__main__':
     import uvicorn
     # 等于通过 uvicorn 命令行 uvicorn 脚本名:app对象 启动服务：
     #  uvicorn xxx:app --reload
-    uvicorn.run('fast_server:app',host="127.0.0.1", port=8001, reload=True)
+    uvicorn.run('fast_server:app',host="0.0.0.0", port=8301, reload=True)
