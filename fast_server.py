@@ -18,6 +18,9 @@ from text.cleaner import clean_text
 from scipy.io import wavfile
 import logging
 
+
+logging.basicConfig(level=logging.INFO)
+
 def log_device_usage(msg, use_cuda=True):
     import psutil
     mem_Mb = psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2
@@ -143,11 +146,17 @@ def tts_fn(text, speaker, sdp_ratio, noise_scale, noise_scale_w, length_scale, l
     audio_list = []
     log_device_usage("=============== before text infer")
     with torch.no_grad():
+        logging.info(f"slices length: {len(slices)}")
+        index = 0
         for slice in slices:
             audio = infer(slice, sdp_ratio=sdp_ratio, noise_scale=noise_scale, noise_scale_w=noise_scale_w, length_scale=length_scale, sid=speaker, language=language)
             audio_list.append(audio)
             silence = np.zeros(hps.data.sampling_rate)  # 生成1秒的静音
             audio_list.append(silence)  # 将静音添加到列表中
+            
+            index+=1
+            logging.info(f"slice finished: {index}")
+            
     audio_concat = np.concatenate(audio_list)
     log_device_usage("=============== after text infer")
     return (hps.data.sampling_rate, audio_concat)
@@ -166,15 +175,15 @@ loop = asyncio.get_event_loop()
 # 使用 json 传参数时
 class TTSParams(BaseModel):
     text:str
-    fmt:AudioFormat=AudioFormat.wav
-    speaker:str="bcsz"
-    sdp_ratio:float=0.2
-    noise_scale:float=0.5
-    noise_scale_w:float=0.6
-    length_scale:float=1.2
-    language:Language=Language.zh    
+    # fmt:AudioFormat=AudioFormat.wav
+    # speaker:str="bcsz"
+    # sdp_ratio:float=0.2
+    # noise_scale:float=0.5
+    # noise_scale_w:float=0.6
+    # length_scale:float=1.2
+    # language:Language=Language.zh    
     
-from fastapi import FastAPI, Response
+from fastapi import Body, FastAPI, Query, Response
 from fastapi.openapi.docs import (
     get_redoc_html,
     get_swagger_ui_html,
@@ -197,9 +206,11 @@ async def custom_swagger_ui_html():
         swagger_css_url="/static/swagger-ui.css",
     )
     
+
 @app.post("/tts")
-async def request_tts(text:str, fmt:AudioFormat=AudioFormat.wav, speaker:str="bcsz", sdp_ratio:float=0.2, noise_scale:float=0.5, noise_scale_w:float=0.6, length_scale:float=1.2, language:Language=Language.zh):
-    text = text.replace("/n", "")
+async def request_tts(body:TTSParams=Body(...), fmt:AudioFormat=Query(AudioFormat.wav), speaker:str=Query("bcsz"), sdp_ratio:float=Query(0.2), noise_scale:float=Query(0.5),
+                      noise_scale_w:float=Query(0.6), length_scale:float=Query(1.2), language:Language=Query(Language.zh)):
+    text = body.text.replace("/n", "")
     rate, audio = await loop.run_in_executor(None, tts_fn,
         text, 
         speaker,
@@ -207,7 +218,7 @@ async def request_tts(text:str, fmt:AudioFormat=AudioFormat.wav, speaker:str="bc
         noise_scale,
         noise_scale_w,
         length_scale,
-        language
+        language+""
     )
 
     with BytesIO() as wav:
@@ -219,7 +230,7 @@ async def request_tts(text:str, fmt:AudioFormat=AudioFormat.wav, speaker:str="bc
             return response
         wav.seek(0, 0)
         with BytesIO() as ofp:
-            wav2(wav, ofp, fmt)
+            wav2(wav, ofp, fmt+"")
             response = Response(
                 ofp.getvalue(), media_type="audio/mpeg" if fmt == "mp3" else "audio/ogg"
             )
