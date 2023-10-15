@@ -139,9 +139,9 @@ net_g = SynthesizerTrn(
 _ = net_g.eval()
 
 _ = utils.load_checkpoint("logs/genshin_mix/G_19000.pth", net_g, None, skip_optimizer=True)
+from fastapi import Body, FastAPI, Query, Response, Request
 
-
-def tts_fn(text, speaker, sdp_ratio, noise_scale, noise_scale_w, length_scale, language):
+async def tts_fn(request:Request, text, speaker, sdp_ratio, noise_scale, noise_scale_w, length_scale, language):
     slices = text.split("|")
     audio_list = []
     log_device_usage("=============== before text infer")
@@ -149,6 +149,9 @@ def tts_fn(text, speaker, sdp_ratio, noise_scale, noise_scale_w, length_scale, l
         logging.info(f"slices length: {len(slices)}")
         index = 0
         for slice in slices:
+            if await request.is_disconnected():
+                raise Exception("request disconnect")
+            
             audio = infer(slice, sdp_ratio=sdp_ratio, noise_scale=noise_scale, noise_scale_w=noise_scale_w, length_scale=length_scale, sid=speaker, language=language)
             audio_list.append(audio)
             silence = np.zeros(hps.data.sampling_rate)  # 生成1秒的静音
@@ -183,7 +186,7 @@ class TTSParams(BaseModel):
     # length_scale:float=1.2
     # language:Language=Language.zh    
     
-from fastapi import Body, FastAPI, Query, Response
+
 from fastapi.openapi.docs import (
     get_redoc_html,
     get_swagger_ui_html,
@@ -205,13 +208,19 @@ async def custom_swagger_ui_html():
         swagger_js_url="/static/swagger-ui-bundle.js",
         swagger_css_url="/static/swagger-ui.css",
     )
-    
+
+def async_tts_fn(*args):
+    loop = asyncio.new_event_loop()
+    results = loop.run_until_complete(tts_fn(*args))
+    loop.close()
+    return results
 
 @app.post("/tts")
-async def request_tts(body:TTSParams=Body(...), fmt:AudioFormat=Query(AudioFormat.wav), speaker:str=Query("bcsz"), sdp_ratio:float=Query(0.2), noise_scale:float=Query(0.5),
+async def request_tts(request:Request, body:TTSParams=Body(...), fmt:AudioFormat=Query(AudioFormat.wav), speaker:str=Query("bcsz"), sdp_ratio:float=Query(0.2), noise_scale:float=Query(0.5),
                       noise_scale_w:float=Query(0.6), length_scale:float=Query(1.2), language:Language=Query(Language.zh)):
     text = body.text.replace("/n", "")
-    rate, audio = await loop.run_in_executor(None, tts_fn,
+    rate, audio = await loop.run_in_executor(None, async_tts_fn,
+        request,
         text, 
         speaker,
         sdp_ratio,
