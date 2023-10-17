@@ -35,20 +35,20 @@ if __name__ == "__main__":
         spk_dir = os.path.join(args.in_dir, speaker)
         if os.path.isdir(spk_dir):
             print(spk_dir)
-            for a in [
-                        (spk_dir, i, args)
-                        for i in os.listdir(spk_dir)
-                        if i.endswith("wav")
-                    ]:
-                process(a)
-            # for _ in tqdm(
-            #     pool.map(
-            #         process,
-            #         [
+            # for a in [
             #             (spk_dir, i, args)
             #             for i in os.listdir(spk_dir)
             #             if i.endswith("wav")
-            #         ],
-            #     )
-            # ):
-            #     passe
+            #         ]:
+            #     process(a)
+            for _ in tqdm(
+                pool.map(
+                    process,
+                    [
+                        (spk_dir, i, args)
+                        for i in os.listdir(spk_dir)
+                        if i.endswith("wav")
+                    ],
+                )
+            ):
+                pass
