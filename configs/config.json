@@ -35,6 +35,7 @@
     "n_speakers": 256,
     "cleaned_text": true,
     "spk2id": {
+      "bcsz": 0,
       "老者": 0,
       "女孩": 1,
       "男孩": 2,
