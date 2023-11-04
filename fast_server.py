@@ -1,3 +1,4 @@
+import base64
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.docs import (
     get_redoc_html,
@@ -224,6 +225,17 @@ def async_tts_fn(*args):
     return results
 
 
+def base64_encode(data):
+    # 将数据编码为字节串
+    data_bytes = data.encode('utf-8')
+    # 对字节串进行 Base64 编码
+    encoded_bytes = base64.b64encode(data_bytes)
+    # 将编码后的字节串转换为字符串
+    encoded_data = encoded_bytes.decode('utf-8')
+
+    return encoded_data
+
+
 @app.post("/tts")
 async def request_tts(request: Request, body: TTSParams = Body(...), fmt: AudioFormat = Query(AudioFormat.wav), speaker: str = Query("年轻女士"), sdp_ratio: float = Query(0.2), noise_scale: float = Query(0.5),
                       noise_scale_w: float = Query(0.6), length_scale: float = Query(1.2), language: Language = Query(Language.zh)):
@@ -253,6 +265,7 @@ async def request_tts(request: Request, body: TTSParams = Body(...), fmt: AudioF
                 ofp.getvalue(), media_type="audio/mpeg" if fmt == "mp3" else "audio/ogg"
             )
             response.headers["Content-Disposition"] = 'attachment; filename="audio.mp3"'
+            response.headers["Translate"] = base64_encode(text)
             return response
 
 
